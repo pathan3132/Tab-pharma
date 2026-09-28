@@ -1,0 +1,381 @@
+const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
+
+// 1. DATA READ KARNA (doGet)
+function doGet(e) {
+  try {
+    const action = e.parameter.action;
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+    // A. INVENTORY LIST FETCH KARNA
+    if (action === 'getInventory') {
+      const sheet = ss.getSheetByName('Inventory_Batches');
+      if (!sheet || sheet.getLastRow() <= 1) {
+        return createJsonResponse({ status: 'success', data: [] });
+      }
+
+      const data = sheet.getDataRange().getDisplayValues();
+      const headers = data[0].map(h => h.trim());
+      const rows = data.slice(1);
+      
+      const inventory = rows.map(row => {
+        let obj = {};
+        headers.forEach((h, i) => obj[h] = row[i]);
+        return obj;
+      });
+      
+      return createJsonResponse({ status: 'success', data: inventory });
+    }
+
+    // B. SALE BILLS HISTORY FETCH KARNA
+    if (action === 'getSalesHistory') {
+      const salesSheet = ss.getSheetByName('Sales');
+      if (!salesSheet || salesSheet.getLastRow() <= 1) {
+        return createJsonResponse({ status: 'success', data: [] });
+      }
+
+      const data = salesSheet.getDataRange().getValues();
+      let invoicesMap = {};
+
+      for (let i = 1; i < data.length; i++) {
+        let r = data[i];
+        let invId = r[0].toString();
+        if (!invId) continue;
+
+        if (!invoicesMap[invId]) {
+          let dateStr = r[1] instanceof Date ? r[1].toLocaleDateString('en-GB') : r[1].toString();
+          invoicesMap[invId] = {
+            invoiceId: invId,
+            date: dateStr,
+            customerMobile: r[2] ? r[2].toString() : 'Counter',
+            totalAmount: 0,
+            items: []
+          };
+        }
+        
+        let itemTotal = Number(r[8]) || 0;
+        invoicesMap[invId].totalAmount += itemTotal;
+        invoicesMap[invId].items.push({
+          medicineName: r[4].toString(),
+          batchNo: r[5].toString(),
+          qty: r[6].toString(),
+          mrp: Number(r[7]) || 0,
+          total: itemTotal
+        });
+      }
+
+      const invoicesList = Object.values(invoicesMap).reverse();
+      return createJsonResponse({ status: 'success', data: invoicesList });
+    }
+
+    // C. 🚚 PURCHASE BILLS HISTORY FETCH KARNA (YEH MISSING THA!)
+    if (action === 'getPurchaseHistory') {
+      const purchSheet = ss.getSheetByName('Purchases');
+      if (!purchSheet || purchSheet.getLastRow() <= 1) {
+        return createJsonResponse({ status: 'success', data: [] });
+      }
+
+      const data = purchSheet.getDataRange().getValues();
+      let invoicesMap = {};
+
+      for (let i = 1; i < data.length; i++) {
+        let r = data[i];
+        let invNo = r[3].toString();       // Col D: Invoice_No
+        let supplier = r[2].toString();    // Col C: Supplier_Name
+        let key = invNo + "_" + supplier;
+
+        if (!invoicesMap[key]) {
+          let dateStr = r[1] instanceof Date ? r[1].toLocaleDateString('en-GB') : r[1].toString();
+          invoicesMap[key] = {
+            invoiceNo: invNo,
+            supplierName: supplier,
+            date: dateStr,
+            totalCost: 0,
+            items: []
+          };
+        }
+        
+        let cost = Number(r[9]) || 0;     // Col J: Total_Amount
+        invoicesMap[key].totalCost += cost;
+        invoicesMap[key].items.push({
+          medicineName: r[4].toString(),  // Col E: Medicine_Name
+          batchNo: r[5].toString(),       // Col F: Batch_No
+          expiryDate: r[6] instanceof Date ? r[6].toISOString().split('T')[0] : r[6].toString(), // Col G: Expiry_Date
+          qty: r[7].toString(),           // Col H: Qty
+          purchaseRate: Number(r[8]) || 0,// Col I: Purchase_Price
+          totalCost: cost
+        });
+      }
+
+      const invoicesList = Object.values(invoicesMap).reverse();
+      return createJsonResponse({ status: 'success', data: invoicesList });
+    }
+
+    // D. TODAY'S SALES SUMMARY
+    if (action === 'getTodaySales') {
+      const salesSheet = ss.getSheetByName('Sales');
+      let total = 0;
+      let bills = 0;
+
+      if (salesSheet && salesSheet.getLastRow() > 1) {
+        const data = salesSheet.getDataRange().getValues();
+        const todayStr = new Date().toDateString();
+
+        for (let i = 1; i < data.length; i++) {
+          const saleDate = new Date(data[i][1]).toDateString();
+          if (saleDate === todayStr) {
+            total += Number(data[i][8]) || 0;
+            bills++;
+          }
+        }
+      }
+
+      return createJsonResponse({ status: 'success', totalAmount: total, totalBills: bills });
+    }
+
+    return createJsonResponse({ status: 'error', message: 'Invalid GET action' });
+
+  } catch (error) {
+    return createJsonResponse({ status: 'error', message: error.toString() });
+  }
+}
+
+// 2. DATA WRITE KARNA (doPost)
+function doPost(e) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const postData = JSON.parse(e.postData.contents);
+    const action = postData.action;
+
+    // A. PURCHASE BILL SAVE KARNA & STOCK BADHANA
+    if (action === 'addPurchaseBill') {
+      let purchSheet = ss.getSheetByName('Purchases');
+      if (!purchSheet) {
+        purchSheet = ss.insertSheet('Purchases');
+        purchSheet.appendRow(['Purchase_ID', 'Date', 'Supplier_Name', 'Invoice_No', 'Medicine_Name', 'Batch_No', 'Expiry_Date', 'Qty', 'Purchase_Price', 'Total_Amount']);
+      }
+
+      let batchSheet = ss.getSheetByName('Inventory_Batches');
+      if (!batchSheet) {
+        batchSheet = ss.insertSheet('Inventory_Batches');
+        batchSheet.appendRow(['Batch_ID', 'Product_ID', 'Medicine_Name', 'Batch_No', 'Expiry_Date', 'Current_Qty', 'Purchase_Rate', 'MRP', 'Sale_Rate', 'Status']);
+      }
+
+      const batchData = batchSheet.getDataRange().getValues();
+
+      postData.items.forEach(item => {
+        const timeStamp = new Date().getTime().toString().slice(-4);
+
+        // 1. Purchases Sheet me entry
+        purchSheet.appendRow([
+          "PUR-" + timeStamp,
+          new Date(),
+          postData.supplierName,
+          postData.invoiceNo,
+          item.medicineName,
+          item.batchNo,
+          item.expiryDate,
+          item.qty,
+          item.purchaseRate,
+          item.totalCost
+        ]);
+
+        // 2. Inventory_Batches me update/insert
+        let existingIndex = -1;
+        for (let i = 1; i < batchData.length; i++) {
+          if (batchData[i][2].toString().trim().toLowerCase() === item.medicineName.toString().trim().toLowerCase() && 
+              batchData[i][3].toString().trim() === item.batchNo.toString().trim()) {
+            existingIndex = i;
+            break;
+          }
+        }
+
+        if (existingIndex > -1) {
+          let currentStockStr = batchSheet.getRange(existingIndex + 1, 6).getValue().toString();
+          let currentNum = parseFloat(currentStockStr) || 0;
+          let unit = currentStockStr.replace(/[0-9.]/g, '').trim() || 'Strip';
+          let addNum = parseFloat(item.qty) || 0;
+
+          let newStock = currentNum + addNum;
+          batchSheet.getRange(existingIndex + 1, 6).setValue(`${newStock} ${unit}`);
+          batchSheet.getRange(existingIndex + 1, 7).setValue(item.purchaseRate);
+          batchSheet.getRange(existingIndex + 1, 8).setValue(item.mrp);
+        } else {
+          batchSheet.appendRow([
+            "BAT-" + timeStamp,
+            "PRD-" + timeStamp,
+            item.medicineName,
+            item.batchNo,
+            item.expiryDate,
+            item.qty,
+            item.purchaseRate,
+            item.mrp,
+            item.mrp,
+            "Active"
+          ]);
+        }
+      });
+
+      return createJsonResponse({ status: 'success', message: 'Purchase Bill Saved & Stock Updated' });
+    }
+
+    // B. SALE BILL SAVE KARNA & STOCK GHATANA
+    if (action === 'makeSale') {
+      let salesSheet = ss.getSheetByName('Sales');
+      if (!salesSheet) {
+        salesSheet = ss.insertSheet('Sales');
+        salesSheet.appendRow(['Invoice_ID', 'Date', 'Customer_Mobile', 'Customer_Name', 'Medicine_Name', 'Batch_No', 'Qty', 'MRP', 'Total_Amount', 'Payment_Mode']);
+      }
+
+      const batchSheet = ss.getSheetByName('Inventory_Batches');
+      const batchData = batchSheet ? batchSheet.getDataRange().getValues() : [];
+
+      postData.items.forEach(item => {
+        salesSheet.appendRow([
+          postData.invoiceId,
+          new Date(),
+          postData.customerMobile,
+          postData.customerName,
+          item.medicineName,
+          item.batchNo,
+          item.qty,
+          item.mrp,
+          item.total,
+          postData.paymentMode || "Direct Sale"
+        ]);
+
+        if (batchSheet) {
+          for (let i = 1; i < batchData.length; i++) {
+            if (batchData[i][2].toString().trim().toLowerCase() === item.medicineName.toString().trim().toLowerCase() && 
+                batchData[i][3].toString().trim() === item.batchNo.toString().trim()) {
+              
+              let currentStockStr = batchData[i][5].toString();
+              let currentNum = parseFloat(currentStockStr) || 0;
+              let unit = currentStockStr.replace(/[0-9.]/g, '').trim() || 'Strip';
+              
+              let deductAmount = Number(item.deductQty) || 1;
+              let newQty = Math.max(0, currentNum - deductAmount);
+              let formattedQty = Number.isInteger(newQty) ? newQty : newQty.toFixed(1);
+
+              batchSheet.getRange(i + 1, 6).setValue(`${formattedQty} ${unit}`);
+              break;
+            }
+          }
+        }
+      });
+
+      return createJsonResponse({ status: 'success', message: 'Sale Completed' });
+    }
+
+    // C. OLD SALE CANCEL KARNA & STOCK RESTORE KARNA (FOR EDIT)
+    if (action === 'cancelAndRestoreStock') {
+      const salesSheet = ss.getSheetByName('Sales');
+      const batchSheet = ss.getSheetByName('Inventory_Batches');
+      const invoiceId = postData.invoiceId;
+
+      if (!salesSheet || !batchSheet) {
+        return createJsonResponse({ status: 'error', message: 'Sheets not found' });
+      }
+
+      const salesData = salesSheet.getDataRange().getValues();
+      const batchData = batchSheet.getDataRange().getValues();
+
+      for (let i = salesData.length - 1; i >= 1; i--) {
+        if (salesData[i][0].toString().trim() === invoiceId.toString().trim()) {
+          let medName = salesData[i][4];
+          let batchNo = salesData[i][5];
+          let soldQtyStr = salesData[i][6].toString();
+
+          let restoreQty = 0;
+          if (soldQtyStr.includes('Strip')) {
+            restoreQty = parseFloat(soldQtyStr) || 1;
+          } else if (soldQtyStr.includes('Tabs')) {
+            restoreQty = (parseFloat(soldQtyStr) || 1) / 10;
+          } else {
+            restoreQty = parseFloat(soldQtyStr) || 1;
+          }
+
+          for (let j = 1; j < batchData.length; j++) {
+            if (batchData[j][2].toString().trim().toLowerCase() === medName.toString().trim().toLowerCase() && 
+                batchData[j][3].toString().trim() === batchNo.toString().trim()) {
+              
+              let currentStockStr = batchSheet.getRange(j + 1, 6).getValue().toString();
+              let currentNum = parseFloat(currentStockStr) || 0;
+              let unit = currentStockStr.replace(/[0-9.]/g, '').trim() || 'Strip';
+
+              let updatedQty = currentNum + restoreQty;
+              let formattedQty = Number.isInteger(updatedQty) ? updatedQty : updatedQty.toFixed(1);
+
+              batchSheet.getRange(j + 1, 6).setValue(`${formattedQty} ${unit}`);
+              break;
+            }
+          }
+
+          salesSheet.deleteRow(i + 1);
+        }
+      }
+
+      return createJsonResponse({ status: 'success', message: 'Stock Restored & Ready for Edit' });
+    }
+
+    // D. CANCEL OLD PURCHASE & REVERT STOCK (FOR EDIT)
+    if (action === 'cancelAndRevertPurchase') {
+      const purchSheet = ss.getSheetByName('Purchases');
+      const batchSheet = ss.getSheetByName('Inventory_Batches');
+      const invoiceNo = postData.invoiceNo;
+      const supplierName = postData.supplierName;
+
+      if (!purchSheet || !batchSheet) {
+        return createJsonResponse({ status: 'error', message: 'Sheets not found' });
+      }
+
+      const purchData = purchSheet.getDataRange().getValues();
+      const batchData = batchSheet.getDataRange().getValues();
+
+      for (let i = purchData.length - 1; i >= 1; i--) {
+        // Match Invoice No and Supplier Name
+        if (purchData[i][3].toString().trim() === invoiceNo.toString().trim() &&
+            purchData[i][2].toString().trim().toLowerCase() === supplierName.toString().trim().toLowerCase()) {
+          
+          let medName = purchData[i][4];
+          let batchNo = purchData[i][5];
+          let purchQtyStr = purchData[i][7].toString();
+          let revertQty = parseFloat(purchQtyStr) || 0;
+
+          // Inventory_Batches sheet me se juda hua stock MINUS (-) karein
+          for (let j = 1; j < batchData.length; j++) {
+            if (batchData[j][2].toString().trim().toLowerCase() === medName.toString().trim().toLowerCase() && 
+                batchData[j][3].toString().trim() === batchNo.toString().trim()) {
+              
+              let currentStockStr = batchSheet.getRange(j + 1, 6).getValue().toString();
+              let currentNum = parseFloat(currentStockStr) || 0;
+              let unit = currentStockStr.replace(/[0-9.]/g, '').trim() || 'Strip';
+
+              let updatedQty = Math.max(0, currentNum - revertQty);
+              let formattedQty = Number.isInteger(updatedQty) ? updatedQty : updatedQty.toFixed(1);
+
+              batchSheet.getRange(j + 1, 6).setValue(`${formattedQty} ${unit}`);
+              break;
+            }
+          }
+
+          // Purchases Sheet se purani row delete karein
+          purchSheet.deleteRow(i + 1);
+        }
+      }
+
+      return createJsonResponse({ status: 'success', message: 'Purchase Reverted & Ready for Edit' });
+    }
+
+    return createJsonResponse({ status: 'error', message: 'Invalid POST action' });
+
+  } catch (error) {
+    return createJsonResponse({ status: 'error', message: error.toString() });
+  }
+}
+
+
+// JSON Output Helper
+function createJsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
