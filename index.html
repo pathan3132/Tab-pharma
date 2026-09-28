@@ -3,18 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Tab-Pharma by Tab Solution</title>
+  <title>Tab-Pharma - Medical Store Billing</title>
+
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0d9488">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tab-Pharma">
+  
+  <!-- App Icons -->
+  <link rel="icon" type="image/png" href="images/Tab-Pharma.png">
+  <link rel="apple-touch-icon" href="images/Tab-Pharma.png">
+
+  <!-- Stylesheet -->
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
+
+  <!-- PWA Installation Banner (Sirf tab dikhega jab app install na ho) -->
+  <div id="pwaInstallBanner" class="pwa-install-banner" style="display:none;">
+    <div class="pwa-banner-left">
+      <img src="images/Tab-Pharma.png" alt="Tab-Pharma" class="pwa-app-icon" onerror="this.src='images/Tab-Pharma.png'">
+      <div>
+        <b>Tab-Pharma App</b>
+        <small>Phone me install karein aur tezi se chalayein</small>
+      </div>
+    </div>
+    <div class="pwa-banner-right">
+      <button class="btn-sm btn-install" onclick="triggerPWAInstall()">
+        <i class="fa-solid fa-download"></i> Install
+      </button>
+      <button class="btn-close-pwa" onclick="dismissPWABanner()">✕</button>
+    </div>
+  </div>
 
   <!-- Top App Header -->
   <header class="app-topbar">
     <div class="brand" onclick="openShopSettingsModal()">
       <div class="brand-icon" id="headerShopLogoWrap">
-        <i class="fa-solid fa-pills" id="defaultLogoIcon"></i>
-        <img id="headerShopLogoImg" src="" alt="Shop Logo" style="display:none;">
+        <img id="headerShopLogoImg" src="images/Tab-Pharma.png" alt="Shop Logo" onerror="this.style.display='none'; document.getElementById('defaultLogoIcon').style.display='block';">
+        <i class="fa-solid fa-pills" id="defaultLogoIcon" style="display:none;"></i>
       </div>
       <div class="brand-text">
         <h2 id="headerShopName">Tab-Pharma</h2>
@@ -24,6 +54,10 @@
       </div>
     </div>
     <div class="header-actions">
+      <!-- 📲 Install Icon in Header -->
+      <button class="icon-btn install-icon-btn" id="headerInstallBtn" onclick="triggerPWAInstall()" style="display:none;" title="Install App">
+        <i class="fa-solid fa-download"></i>
+      </button>
       <!-- 🎧 Support Button -->
       <button class="icon-btn support-btn" onclick="openSupportModal()" title="Help & Support">
         <i class="fa-solid fa-headset"></i>
@@ -40,7 +74,7 @@
   <!-- Main Scrollable App Container -->
   <main class="app-main">
 
-    <!-- 1. DASHBOARD / HOME (CLEAN & MODERN) -->
+    <!-- 1. DASHBOARD / HOME -->
     <section id="dashboard" class="tab-content active-content">
       
       <!-- 🌙 SHAAM KA GALLA BANNER -->
@@ -437,7 +471,7 @@
     </button>
   </nav>
 
-  <!-- 📦 NEW FULL-FEATURED EXPIRY RETURN DESK MODAL -->
+  <!-- 📦 EXPIRY RETURN DESK MODAL -->
   <div id="expiryDeskModal" class="modal-overlay">
     <div class="modal-box modal-fullscreen">
       <div class="modal-header">
@@ -448,7 +482,6 @@
         <button class="close-btn" onclick="closeExpiryDesk()">✕</button>
       </div>
 
-      <!-- Search & Filters -->
       <div class="search-bar-wrap" style="margin-bottom:8px;">
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" id="deskSearchInput" class="form-input search-input" placeholder="Search dawa ya batch..." oninput="renderExpiryDeskItems()">
@@ -460,20 +493,16 @@
         <button class="chip" onclick="filterDeskCategory('soon', this)">⏳ 60 Din Me Expire</button>
       </div>
 
-      <!-- Master Select All Bar -->
       <div class="desk-select-bar">
         <label class="custom-check-wrap">
           <input type="checkbox" id="deskSelectAllCheck" onchange="toggleDeskSelectAll(this)">
-          <span class="checkmark"></span>
           <b>Select All</b>
         </label>
         <span class="pill-badge" id="selectedCountBadge" style="background:#0d9488; color:white;">0 Selected</span>
       </div>
 
-      <!-- Scrollable Checkbox Item Cards -->
       <div id="expiryDeskList" class="desk-cards-container"></div>
 
-      <!-- Bottom Floating Action Bar for Selected Items -->
       <div class="desk-actions-bar">
         <button type="button" class="btn btn-blue" onclick="printSelectedExpiryPDF()" title="Print / PDF Challan">
           <i class="fa-solid fa-file-pdf"></i> PDF Challan
@@ -493,8 +522,8 @@
     <div class="modal-box modal-wizard">
       <div class="wizard-header">
         <div class="company-brand-pill">
-          <img src="images/Tab-Solutions-logo.png" onerror="this.style.display='none'" alt="Tab Solution" class="tab-sol-mini-logo">
-          <span>Tab Solution</span>
+          <img src="images/Tab-Pharma.png" alt="Tab-Pharma" class="tab-pharma-mini-logo" onerror="this.style.display='none'">
+          <span>Tab-Pharma by Tab Solution</span>
         </div>
         <h2>🏥 Dukan Ka Setup (Shop Profile)</h2>
         <p>Yeh jankari aapke Parcha (Bill) aur Expiry slip par print hogi.</p>
@@ -550,12 +579,15 @@
     </div>
   </div>
 
-  <!-- 🌟 TAB SOLUTION 24/7 SUPPORT MODAL -->
+  <!-- 🌟 TAB SOLUTION SUPPORT MODAL -->
   <div id="tabSolutionSupportModal" class="modal-overlay">
     <div class="modal-box support-modal-card">
       <div class="support-card-header">
         <div class="brand-top-row">
-          <img src="images/Tab-Solutions-logo.png" onerror="this.src='https://via.placeholder.com/120x40?text=Tab+Solution'" alt="Tab Solution Logo" class="support-company-logo">
+          <div class="tab-sol-badge-vector">
+            <div class="tab-key-3d">Tab ↹</div>
+            <div class="tab-key-text">SOLUTION</div>
+          </div>
           <button class="close-btn" onclick="closeSupportModal()">✕</button>
         </div>
         <p class="tagline">Smart Solutions, Better Business</p>

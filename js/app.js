@@ -1,3 +1,50 @@
+// 📱 PWA Service Worker Registration & Install Trigger
+let deferredPrompt;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then((reg) => console.log('Tab-Pharma PWA Service Worker Registered:', reg.scope))
+      .catch((err) => console.log('SW registration error:', err));
+  });
+}
+
+// Listen for PWA Install Prompt Event
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+
+  // Agar user ne pehle dismiss nahi kiya hai toh banner dikhayein
+  if (!localStorage.getItem('pwa_dismissed')) {
+    const banner = document.getElementById('pwaInstallBanner');
+    if (banner) banner.style.display = 'flex';
+  }
+
+  const headerBtn = document.getElementById('headerInstallBtn');
+  if (headerBtn) headerBtn.style.display = 'inline-flex';
+});
+
+function triggerPWAInstall() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('User installed Tab-Pharma PWA');
+      }
+      deferredPrompt = null;
+      dismissPWABanner();
+    });
+  } else {
+    alert("App install karne ke liye apne browser menu (⋮) me jakar 'Install App' ya 'Add to Home Screen' chunein!");
+  }
+}
+
+function dismissPWABanner() {
+  const banner = document.getElementById('pwaInstallBanner');
+  if (banner) banner.style.display = 'none';
+  localStorage.setItem('pwa_dismissed', 'true');
+}
+
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbygUy7ifkxzOIExrDJ_wqV3YU5Q5uhJH3BFSm3Q2TMqv9G2LRbYne89N1vQAwKiU9x06g/exec";
 
 // Global Stores & Profiles
@@ -528,6 +575,15 @@ function selectSuggestion(inputId, boxId, medName) {
 
   if (inputId === 'posMedName') {
     autoFillPOSDetails(medName);
+  } else if (inputId === 'stockMedName') {
+    // 🚚 Purchase Form me purana batch auto-fill karein
+    const existing = globalInventory.find(item => item.Medicine_Name && item.Medicine_Name.toLowerCase() === medName.toLowerCase());
+    if (existing) {
+      document.getElementById('stockBatchNo').value = existing.Batch_No || '';
+      document.getElementById('stockExpiryDate').value = existing.Expiry_Date || '';
+      document.getElementById('stockMrp').value = existing.MRP || '';
+      document.getElementById('stockPurchaseRate').value = existing.Purchase_Rate || '';
+    }
   }
 }
 
@@ -538,20 +594,42 @@ document.addEventListener('click', function(e) {
 });
 
 // 10. POS Sale Mode, Cart & Billing
+// 6. POS Smart Selection (Hamesha Fresh / Non-Expired Stock Pehle Uthayega)
 function autoFillPOSDetails(medName) {
-  const batches = globalInventory.filter(item => item.Medicine_Name && item.Medicine_Name.toLowerCase() === medName.toLowerCase());
+  const batches = globalInventory.filter(item => 
+    item.Medicine_Name && item.Medicine_Name.toLowerCase() === medName.toLowerCase()
+  );
   if (batches.length === 0) return;
 
-  const inStockBatches = batches.filter(b => (parseFloat(b.Current_Qty) || 0) > 0);
-  const targetBatches = inStockBatches.length > 0 ? inStockBatches : batches;
-
-  targetBatches.sort((a, b) => parseSafeDate(a.Expiry_Date) - parseSafeDate(b.Expiry_Date));
-  
-  const bestBatch = targetBatches[0];
-  const expDate = parseSafeDate(bestBatch.Expiry_Date);
   const today = new Date();
+
+  // Step 1: Sirf wahi batch dekhein jinka stock dukan me bacha hai (> 0)
+  const inStockBatches = batches.filter(b => (parseFloat(b.Current_Qty) || 0) > 0);
+  const targetPool = inStockBatches.length > 0 ? inStockBatches : batches;
+
+  // Step 2: Fresh (Non-Expired) Batches ko alag filter karein
+  const freshBatches = targetPool.filter(b => {
+    const exp = parseSafeDate(b.Expiry_Date);
+    return Math.ceil((exp - today) / (1000 * 60 * 60 * 24)) >= 0;
+  });
+
+  let bestBatch;
+
+  // Step 3: Agar dukan me nayi / fresh dawa aa chuki hai, toh wahi select karo!
+  if (freshBatches.length > 0) {
+    // Fresh batches me se jo sabse pehle expire hogi (FEFO) use chuno
+    freshBatches.sort((a, b) => parseSafeDate(a.Expiry_Date) - parseSafeDate(b.Expiry_Date));
+    bestBatch = freshBatches[0];
+  } else {
+    // Agar sari hi dawaiyan expire hain, tab majboori me expired batch uthao warning ke sath
+    targetPool.sort((a, b) => parseSafeDate(b.Expiry_Date) - parseSafeDate(a.Expiry_Date));
+    bestBatch = targetPool[0];
+  }
+  
+  const expDate = parseSafeDate(bestBatch.Expiry_Date);
   const daysDiff = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
 
+  // Form me batch details bharein
   document.getElementById('posBatchInfo').style.display = 'flex';
   document.getElementById('posSelectedBatch').innerText = bestBatch.Batch_No;
   document.getElementById('posSelectedExpiry').innerText = bestBatch.Expiry_Date;
@@ -559,12 +637,14 @@ function autoFillPOSDetails(medName) {
   document.getElementById('posRate').value = bestBatch.MRP;
   document.getElementById('posQty').value = 1;
 
+  // Warning Banner Logic
   const banner = document.getElementById('posExpiredBanner');
   if (daysDiff < 0) {
     isCurrentMedicineExpired = true;
     banner.style.display = 'flex';
     document.getElementById('posExpiredDateText').innerText = `${bestBatch.Expiry_Date} (${Math.abs(daysDiff)} din pehle expired)`;
   } else {
+    // Agar fresh batch hai, toh warning band rahegi
     isCurrentMedicineExpired = false;
     banner.style.display = 'none';
   }
