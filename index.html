@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tab-Pharma - Medical Store Billing</title>
 
   <!-- PWA Meta Tags -->
@@ -22,13 +22,13 @@
 </head>
 <body>
 
-  <!-- PWA Installation Banner (Sirf tab dikhega jab app install na ho) -->
+  <!-- PWA Installation Banner (shown only when the app is not installed) -->
   <div id="pwaInstallBanner" class="pwa-install-banner" style="display:none;">
     <div class="pwa-banner-left">
-      <img src="images/Tab-Pharma.png" alt="Tab-Pharma" class="pwa-app-icon" onerror="this.src='images/Tab-Pharma.png'">
+      <img src="images/Tab-Pharma.png" alt="Tab-Pharma" class="pwa-app-icon" onerror="this.onerror=null; this.style.display='none'">
       <div>
         <b>Tab-Pharma App</b>
-        <small>Phone me install karein aur tezi se chalayein</small>
+        <small>Install on your phone for faster access</small>
       </div>
     </div>
     <div class="pwa-banner-right">
@@ -62,7 +62,7 @@
       <button class="icon-btn support-btn" onclick="openSupportModal()" title="Help & Support">
         <i class="fa-solid fa-headset"></i>
       </button>
-      <button class="icon-btn" onclick="openShopSettingsModal()" title="Dukan Ki Settings">
+      <button class="icon-btn" onclick="openShopSettingsModal()" title="Shop Settings">
         <i class="fa-solid fa-gear"></i>
       </button>
       <button class="icon-btn" onclick="loadInventory(); loadTodaySalesSummary();" title="Refresh">
@@ -77,11 +77,11 @@
     <!-- 1. DASHBOARD / HOME -->
     <section id="dashboard" class="tab-content active-content">
       
-      <!-- 🌙 SHAAM KA GALLA BANNER -->
+      <!-- 🌙 TODAY'S COLLECTION BANNER -->
       <div class="galla-card">
         <div class="galla-header">
-          <span><i class="fa-solid fa-cash-register"></i> Aaj Ka Kul Galla</span>
-          <span class="pill-badge" id="todayBillCount">0 Parcha</span>
+          <span><i class="fa-solid fa-cash-register"></i> Today's Total Sales</span>
+          <span class="pill-badge" id="todayBillCount">0 Bills</span>
         </div>
         <h1 class="galla-total" id="todaySaleAmount">₹0</h1>
         
@@ -95,7 +95,7 @@
             <b id="todayUpiAmount">₹0</b>
           </div>
           <div class="galla-col">
-            <span class="lbl">📒 Udhaar</span>
+            <span class="lbl">📒 Credit (Udhaar)</span>
             <b id="todayUdhaarAmount" style="color: #fca5a5;">₹0</b>
           </div>
         </div>
@@ -106,17 +106,17 @@
         <div class="metric-card danger" onclick="openExpiryDesk('expired')">
           <i class="fa-solid fa-triangle-exclamation"></i>
           <span class="count" id="expired-count">0</span>
-          <span class="title">Expired Dawa</span>
+          <span class="title">Expired Medicines</span>
         </div>
         <div class="metric-card warning" onclick="openExpiryDesk('soon')">
           <i class="fa-solid fa-clock-rotate-left"></i>
           <span class="count" id="expiring-count">0</span>
-          <span class="title">60 Din me Expire</span>
+          <span class="title">Expiring in 60 Days</span>
         </div>
         <div class="metric-card info" onclick="showTab('stock', document.querySelectorAll('.nav-item')[4])">
           <i class="fa-solid fa-boxes-stacked"></i>
           <span class="count" id="low-stock-count">0</span>
-          <span class="title">Kam Stock</span>
+          <span class="title">Low Stock</span>
         </div>
       </div>
 
@@ -126,11 +126,11 @@
           <div class="hero-icon"><i class="fa-solid fa-box-archive"></i></div>
           <div>
             <h3>Expiry & Return Desk</h3>
-            <p>Dawaiyan tick karein, WhatsApp list bhejein ya return karein.</p>
+            <p>Select medicines, send a WhatsApp list, or process returns.</p>
           </div>
         </div>
         <button class="btn btn-hero" onclick="openExpiryDesk('all')">
-          Desk Kholein <i class="fa-solid fa-arrow-right"></i>
+          Open Desk <i class="fa-solid fa-arrow-right"></i>
         </button>
       </div>
 
@@ -138,23 +138,23 @@
       <div class="quick-shortcuts-grid">
         <div class="shortcut-card" onclick="showTab('pos', document.querySelectorAll('.nav-item')[1])">
           <div class="icon-circle" style="background:#dcfce7; color:#16a34a;"><i class="fa-solid fa-receipt"></i></div>
-          <b>Naya Parcha</b>
-          <small>Grahak ko bill dein</small>
+          <b>New Bill</b>
+          <small>Create a customer bill</small>
         </div>
         <div class="shortcut-card" onclick="showTab('history', document.querySelectorAll('.nav-item')[2]); switchHistoryMode('khata');">
           <div class="icon-circle" style="background:#fee2e2; color:#ef4444;"><i class="fa-solid fa-book-bookmark"></i></div>
-          <b>Udhaar Khata</b>
-          <small>Baki hisaab dekhein</small>
+          <b>Credit Ledger</b>
+          <small>View pending dues</small>
         </div>
         <div class="shortcut-card" onclick="showTab('purchase', document.querySelectorAll('.nav-item')[3])">
           <div class="icon-circle" style="background:#e0f2fe; color:#0284c7;"><i class="fa-solid fa-truck-ramp-box"></i></div>
-          <b>Kharid Entry</b>
-          <small>Agency bill jodein</small>
+          <b>Purchase Entry</b>
+          <small>Add distributor invoice</small>
         </div>
         <div class="shortcut-card" onclick="showTab('stock', document.querySelectorAll('.nav-item')[4])">
           <div class="icon-circle" style="background:#f1f5f9; color:#475569;"><i class="fa-solid fa-boxes-stacked"></i></div>
           <b>Stock Check</b>
-          <small>Dukan ki dawaiyan</small>
+          <small>Shop inventory</small>
         </div>
       </div>
 
@@ -164,8 +164,8 @@
     <section id="pos" class="tab-content">
       <div class="mobile-card pos-selector-card">
         <div class="form-group autocomplete-wrapper">
-          <label><i class="fa-solid fa-magnifying-glass"></i> Dawa Ka Naam Likhein</label>
-          <input type="text" id="posMedName" class="form-input search-input" placeholder="Dawa ka naam search karein..." autocomplete="off" oninput="showSuggestions(this, 'posSuggestions')">
+          <label><i class="fa-solid fa-magnifying-glass"></i> Enter Medicine Name</label>
+          <input type="text" id="posMedName" class="form-input search-input" placeholder="Search medicine name..." autocomplete="off" oninput="showSuggestions(this, 'posSuggestions')">
           <div id="posSuggestions" class="suggestions-box"></div>
         </div>
 
@@ -182,16 +182,16 @@
 
         <div class="mode-toggle-group">
           <button type="button" id="btnModeStrip" class="mode-btn active" onclick="setSaleMode('strip')">
-            <i class="fa-solid fa-tablets"></i> Pura Patta (Strip)
+            <i class="fa-solid fa-tablets"></i> Full Strip
           </button>
           <button type="button" id="btnModeLoose" class="mode-btn" onclick="setSaleMode('loose')">
-            <i class="fa-solid fa-capsules"></i> Khuli Goli (Loose)
+            <i class="fa-solid fa-capsules"></i> Loose Tablets
           </button>
         </div>
 
         <div id="fullStripRow" class="input-stepper-row">
           <div class="form-group flex-1">
-            <label>Kitne Patte (Qty)</label>
+            <label>Strips (Qty)</label>
             <div class="stepper-box">
               <button type="button" class="step-btn" onclick="stepQty('posQty', -1)">-</button>
               <input type="number" id="posQty" class="form-input text-center" value="1" min="1" oninput="calcItemSubtotal()">
@@ -199,7 +199,7 @@
             </div>
           </div>
           <div class="form-group flex-1">
-            <label>MRP / Patta (₹)</label>
+            <label>MRP / Strip (₹)</label>
             <input type="number" id="posRate" class="form-input" placeholder="₹ Rate" oninput="calcItemSubtotal()">
           </div>
         </div>
@@ -207,7 +207,7 @@
         <div id="looseTabletRow" class="loose-box" style="display: none;">
           <div class="input-stepper-row">
             <div class="form-group flex-1">
-              <label>Kitni Goliya</label>
+              <label>Number of Tablets</label>
               <div class="stepper-box">
                 <button type="button" class="step-btn" onclick="stepQty('posLooseCount', -1)">-</button>
                 <input type="number" id="posLooseCount" class="form-input text-center" value="4" min="1" oninput="calcItemSubtotal()">
@@ -215,27 +215,27 @@
               </div>
             </div>
             <div class="form-group flex-1">
-              <label>1 Patte me Goli</label>
+              <label>Tablets per Strip</label>
               <input type="number" id="posTabsPerStrip" class="form-input" value="10" oninput="calcItemSubtotal()">
             </div>
           </div>
-          <div class="loose-price-tag">1 Goli Ka Rate: <b id="perTabPriceDisplay">₹0.00</b></div>
+          <div class="loose-price-tag">Rate per Tablet: <b id="perTabPriceDisplay">₹0.00</b></div>
         </div>
 
         <button type="button" class="btn btn-primary btn-add-cart" onclick="addItemToCart(false)">
-          <i class="fa-solid fa-plus-circle"></i> Bill me Jodein — <span id="itemSubtotalDisplay">₹0</span>
+          <i class="fa-solid fa-plus-circle"></i> Add to Bill — <span id="itemSubtotalDisplay">₹0</span>
         </button>
       </div>
 
       <div class="cart-section">
         <div class="section-header">
-          <h4><i class="fa-solid fa-receipt"></i> Is Bill Ki Dawa (Items)</h4>
+          <h4><i class="fa-solid fa-receipt"></i> Items in This Bill</h4>
           <span class="pill-badge" id="cartBadge">0 Item</span>
         </div>
         <div id="cartItemsList" class="cards-list">
           <div class="empty-state">
             <i class="fa-solid fa-cart-shopping"></i>
-            <p>Bill khali hai. Upar se dawa add karein.</p>
+            <p>The bill is empty. Add a medicine above.</p>
           </div>
         </div>
       </div>
@@ -243,48 +243,48 @@
       <!-- Payment Mode -->
       <div class="mobile-card" style="margin-top: 10px;">
         <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display:block; margin-bottom:6px;">
-          Paisa Kaise Aaya? (Payment Mode)
+          Payment Mode
         </label>
         
         <div class="payment-mode-selector">
           <button type="button" id="payModeCash" class="pay-btn active" onclick="setPaymentMode('Cash')">
-            💵 Cash (नकद)
+            💵 Cash
           </button>
           <button type="button" id="payModeUPI" class="pay-btn" onclick="setPaymentMode('UPI')">
             📱 UPI / Online
           </button>
           <button type="button" id="payModeUdhaar" class="pay-btn" onclick="setPaymentMode('Udhaar')">
-            📒 Udhaar (उधार)
+            📒 Credit (Udhaar)
           </button>
         </div>
 
         <div class="card-row" style="margin-top: 8px;">
           <div class="form-group flex-1" id="custNameField" style="display:none;">
-            <label style="color:#b91c1c;">Grahak Ka Naam *</label>
+            <label style="color:#b91c1c;">Customer Name *</label>
             <input type="text" id="posCustomerName" class="form-input" placeholder="e.g. Ramesh Sharma">
           </div>
           <div class="form-group flex-1">
             <label>Customer Mobile (WhatsApp)</label>
-            <input type="number" id="posCustomerMobile" class="form-input" placeholder="e.g. 9876543210">
+            <input type="tel" inputmode="numeric" id="posCustomerMobile" class="form-input" placeholder="e.g. 9876543210">
           </div>
         </div>
       </div>
 
       <div id="billSuccessBox" class="success-banner" style="display: none;">
-        <h4><i class="fa-solid fa-circle-check"></i> Bill Ban Gaya!</h4>
+        <h4><i class="fa-solid fa-circle-check"></i> Bill Created!</h4>
         <button id="whatsappShareBtn" class="btn btn-whatsapp" style="display: none;">
-          <i class="fa-brands fa-whatsapp"></i> Grahak ko Parcha Bhejein
+          <i class="fa-brands fa-whatsapp"></i> Send Receipt to Customer
         </button>
       </div>
 
       <div class="pos-checkout-bar">
         <div class="total-info">
-          <span>Kul Bill Rashi</span>
+          <span>Total Bill Amount</span>
           <h2 id="finalNetPayable">₹0</h2>
         </div>
         <div class="checkout-actions">
           <button type="button" id="posSaleBtn" class="btn btn-success" onclick="submitFinalBill(false)">
-            <i class="fa-solid fa-check"></i> Save Parcha
+            <i class="fa-solid fa-check"></i> Save Bill
           </button>
           <button type="button" class="btn btn-blue" onclick="submitFinalBill(true)">
             <i class="fa-solid fa-print"></i> Print
@@ -297,10 +297,10 @@
     <section id="history" class="tab-content">
       <div class="mode-toggle-group">
         <button type="button" id="btnHistKhata" class="mode-btn active" onclick="switchHistoryMode('khata')">
-          <i class="fa-solid fa-book-bookmark"></i> Udhaar Khata
+          <i class="fa-solid fa-book-bookmark"></i> Credit Ledger
         </button>
         <button type="button" id="btnHistSale" class="mode-btn" onclick="switchHistoryMode('sale')">
-          <i class="fa-solid fa-receipt"></i> Sabhi Bill
+          <i class="fa-solid fa-receipt"></i> All Bills
         </button>
         <button type="button" id="btnHistPurch" class="mode-btn" onclick="switchHistoryMode('purchase')">
           <i class="fa-solid fa-truck-ramp-box"></i> Purchase Bill
@@ -313,7 +313,7 @@
       </div>
 
       <div class="section-header">
-        <span id="historyHeadingText" style="font-weight:700; font-size:0.9rem; color:#334155;">Mohalle Ka Udhaar (Baki Hisaab)</span>
+        <span id="historyHeadingText" style="font-weight:700; font-size:0.9rem; color:#334155;">Outstanding Credit (Udhaar) Ledger</span>
         <button onclick="refreshCurrentHistory(true)" class="btn-sm btn-outline">
           <i class="fa-solid fa-arrows-rotate"></i> Sync
         </button>
@@ -338,10 +338,10 @@
       </div>
 
       <div class="mobile-card">
-        <h4 style="font-size:0.85rem; color:#0f766e; margin-bottom:8px;"><i class="fa-solid fa-plus"></i> Kharidi Gayi Dawa Jodein</h4>
+        <h4 style="font-size:0.85rem; color:#0f766e; margin-bottom:8px;"><i class="fa-solid fa-plus"></i> Add Purchased Medicine</h4>
         
         <div class="form-group autocomplete-wrapper">
-          <label>Dawa Ka Naam</label>
+          <label>Medicine Name</label>
           <input type="text" id="stockMedName" class="form-input" placeholder="Type medicine name..." autocomplete="off" oninput="showSuggestions(this, 'stockSuggestions')">
           <div id="stockSuggestions" class="suggestions-box"></div>
         </div>
@@ -361,15 +361,15 @@
           <div class="form-group flex-1">
             <label>Packing Unit</label>
             <select id="stockUnitType" class="form-input" onchange="handleUnitChange()">
-              <option value="Strip">Strip (पत्ता)</option>
-              <option value="Box">Box (डिब्बा)</option>
-              <option value="Bottle">Bottle (सिरप)</option>
-              <option value="Tube">Tube (मलहम)</option>
+              <option value="Strip">Strip</option>
+              <option value="Box">Box</option>
+              <option value="Bottle">Bottle (Syrup)</option>
+              <option value="Tube">Tube (Ointment)</option>
               <option value="Pack">Pack / Piece</option>
             </select>
           </div>
           <div class="form-group flex-1">
-            <label>Kharidi Qty</label>
+            <label>Purchased Qty</label>
             <input type="number" id="stockQty" class="form-input" placeholder="Qty" oninput="calcPurchaseItemTotal()">
           </div>
           <div class="form-group flex-1">
@@ -379,13 +379,13 @@
         </div>
 
         <div class="form-group" id="boxMultiplierDiv" style="display: none; background: #e0f2fe; padding: 8px; border-radius: 6px;">
-          <label style="color: #0369a1; font-size:0.75rem;">1 Box me kitne Patte (Strips) hain?</label>
+          <label style="color: #0369a1; font-size:0.75rem;">Strips per Box</label>
           <input type="number" id="stripsPerBox" class="form-input" value="10" oninput="calcPurchaseItemTotal()">
         </div>
 
         <div class="card-row">
           <div class="form-group flex-1">
-            <label>Kharid Rate (₹)</label>
+            <label>Purchase Rate (₹)</label>
             <input type="number" id="stockPurchaseRate" class="form-input" placeholder="₹ Rate" oninput="calcPurchaseItemTotal()">
           </div>
           <div class="form-group flex-1">
@@ -395,36 +395,36 @@
         </div>
 
         <div class="summary-pill">
-          <span>Kul Stock: <b id="totalSellableDisplay">0 Strips</b></span>
-          <span>Kharid Cost: <b id="itemCostDisplay">₹0</b></span>
+          <span>Total Stock: <b id="totalSellableDisplay">0 Strips</b></span>
+          <span>Purchase Cost: <b id="itemCostDisplay">₹0</b></span>
         </div>
 
         <button type="button" class="btn btn-blue" onclick="addItemToPurchaseInvoice()" style="margin-top:6px;">
-          <i class="fa-solid fa-plus-circle"></i> + Kharid Bill me Jodein
+          <i class="fa-solid fa-plus-circle"></i> Add to Purchase Bill
         </button>
       </div>
 
       <div class="cart-section">
         <div class="section-header">
-          <h4><i class="fa-solid fa-list-check"></i> Bill Ki Dawa List</h4>
+          <h4><i class="fa-solid fa-list-check"></i> Medicines in This Invoice</h4>
           <span class="pill-badge" id="purchaseCartBadge">0 Item</span>
         </div>
         <div id="purchaseCartList" class="cards-list">
           <div class="empty-state">
             <i class="fa-solid fa-truck-loading"></i>
-            <p>Koi dawa add nahi hui hai.</p>
+            <p>No medicines added yet.</p>
           </div>
         </div>
       </div>
 
       <div class="pos-checkout-bar">
         <div class="total-info">
-          <span>Kul Kharid Rashi</span>
+          <span>Total Purchase Amount</span>
           <h2 id="finalPurchaseCostDisplay" style="color: #38bdf8;">₹0</h2>
         </div>
         <div class="checkout-actions" style="flex:1;">
           <button type="button" id="saveStockBtn" class="btn btn-success" style="width:100%;" onclick="submitFinalPurchaseBill()">
-            <i class="fa-solid fa-cloud-arrow-up"></i> Stock Jama Karein
+            <i class="fa-solid fa-cloud-arrow-up"></i> Add to Stock
           </button>
         </div>
       </div>
@@ -434,11 +434,11 @@
     <section id="stock" class="tab-content">
       <div class="search-bar-wrap">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" id="inventorySearchInput" class="form-input search-input" placeholder="Dawa, batch ya expiry search karein..." oninput="filterInventoryCards()">
+        <input type="text" id="inventorySearchInput" class="form-input search-input" placeholder="Search medicine, batch or expiry..." oninput="filterInventoryCards()">
       </div>
 
       <div class="section-header">
-        <span style="font-weight:700; font-size:0.9rem; color:#334155;">Dukan Ka Stock</span>
+        <span style="font-weight:700; font-size:0.9rem; color:#334155;">Shop Inventory</span>
         <span class="pill-badge" id="totalItemsCount">0 Items</span>
       </div>
 
@@ -451,19 +451,19 @@
   <nav class="app-bottom-nav">
     <button class="nav-item active" onclick="showTab('dashboard', this)">
       <i class="fa-solid fa-chart-pie"></i>
-      <span>Galla</span>
+      <span>Home</span>
     </button>
     <button class="nav-item" onclick="showTab('pos', this)">
       <i class="fa-solid fa-cash-register"></i>
-      <span>Parcha</span>
+      <span>Billing</span>
     </button>
     <button class="nav-item" onclick="showTab('history', this); loadCurrentHistoryFast();">
       <i class="fa-solid fa-book-bookmark"></i>
-      <span>Khata</span>
+      <span>Ledger</span>
     </button>
     <button class="nav-item" onclick="showTab('purchase', this)">
       <i class="fa-solid fa-truck-ramp-box"></i>
-      <span>Kharid</span>
+      <span>Purchase</span>
     </button>
     <button class="nav-item" onclick="showTab('stock', this)">
       <i class="fa-solid fa-boxes-stacked"></i>
@@ -477,20 +477,20 @@
       <div class="modal-header">
         <div>
           <h3 style="margin:0; font-size:1.05rem;"><i class="fa-solid fa-box-archive" style="color:#ef4444;"></i> Expiry Return Desk</h3>
-          <small style="color:#64748b;">Tick karein, PDF challan banayein ya return karein</small>
+          <small style="color:#64748b;">Select items, generate a PDF challan, or confirm returns</small>
         </div>
         <button class="close-btn" onclick="closeExpiryDesk()">✕</button>
       </div>
 
       <div class="search-bar-wrap" style="margin-bottom:8px;">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" id="deskSearchInput" class="form-input search-input" placeholder="Search dawa ya batch..." oninput="renderExpiryDeskItems()">
+        <input type="text" id="deskSearchInput" class="form-input search-input" placeholder="Search medicine or batch..." oninput="renderExpiryDeskItems()">
       </div>
 
       <div class="filter-chips" style="margin-bottom:8px;">
-        <button class="chip active" onclick="filterDeskCategory('all', this)">Sabhi</button>
-        <button class="chip" onclick="filterDeskCategory('expired', this)">🚨 Expired Ho Chuki</button>
-        <button class="chip" onclick="filterDeskCategory('soon', this)">⏳ 60 Din Me Expire</button>
+        <button class="chip active" onclick="filterDeskCategory('all', this)">All</button>
+        <button class="chip" onclick="filterDeskCategory('expired', this)">🚨 Already Expired</button>
+        <button class="chip" onclick="filterDeskCategory('soon', this)">⏳ Expiring in 60 Days</button>
       </div>
 
       <div class="desk-select-bar">
@@ -510,7 +510,7 @@
         <button type="button" class="btn btn-whatsapp" onclick="sendSelectedExpiryWhatsApp()" title="WhatsApp Claim">
           <i class="fa-brands fa-whatsapp"></i> WhatsApp
         </button>
-        <button type="button" class="btn btn-danger" onclick="bulkMarkSelectedAsReturned()" title="Stock se hatayein">
+        <button type="button" class="btn btn-danger" onclick="bulkMarkSelectedAsReturned()" title="Remove from stock">
           <i class="fa-solid fa-box-archive"></i> Return Confirm
         </button>
       </div>
@@ -525,8 +525,8 @@
           <img src="images/Tab-Pharma.png" alt="Tab-Pharma" class="tab-pharma-mini-logo" onerror="this.style.display='none'">
           <span>Tab-Pharma by Tab Solution</span>
         </div>
-        <h2>🏥 Dukan Ka Setup (Shop Profile)</h2>
-        <p>Yeh jankari aapke Parcha (Bill) aur Expiry slip par print hogi.</p>
+        <h2>🏥 Shop Setup (Shop Profile)</h2>
+        <p>This information will be printed on your bills and expiry slips.</p>
       </div>
 
       <div class="logo-uploader-wrap">
@@ -539,28 +539,28 @@
         </div>
         <input type="file" id="shopLogoInput" accept="image/*" style="display:none;" onchange="handleLogoUpload(this)">
         <small style="color:#0d9488; font-weight:600; cursor:pointer;" onclick="document.getElementById('shopLogoInput').click()">
-          <i class="fa-solid fa-cloud-arrow-up"></i> Dukan Ka Logo / Photo Dalein
+          <i class="fa-solid fa-cloud-arrow-up"></i> Upload Shop Logo / Photo
         </small>
       </div>
 
       <div class="form-group">
-        <label>Medical Store / Chemist Ka Naam *</label>
+        <label>Medical Store / Chemist Name *</label>
         <input type="text" id="setupShopName" class="form-input" placeholder="e.g. Sharma Medical & General Store" required>
       </div>
 
       <div class="card-row">
         <div class="form-group flex-1">
-          <label>Owner / Dukandar Ka Naam</label>
+          <label>Owner Name</label>
           <input type="text" id="setupOwnerName" class="form-input" placeholder="e.g. Ramesh Sharma">
         </div>
         <div class="form-group flex-1">
-          <label>Dukan Ka Phone *</label>
-          <input type="number" id="setupShopPhone" class="form-input" placeholder="e.g. 9876543210" required>
+          <label>Shop Phone *</label>
+          <input type="tel" inputmode="numeric" id="setupShopPhone" class="form-input" placeholder="e.g. 9876543210" required>
         </div>
       </div>
 
       <div class="form-group">
-        <label>Dukan Ka Pata *</label>
+        <label>Shop Address *</label>
         <input type="text" id="setupShopAddress" class="form-input" placeholder="e.g. Main Market, Near Bus Stand, Jaipur" required>
       </div>
 
@@ -570,7 +570,7 @@
       </div>
 
       <button type="button" class="btn btn-primary" onclick="saveShopProfile()" style="margin-top:10px; padding:12px;">
-        <i class="fa-solid fa-circle-check"></i> Profile Save Karein
+        <i class="fa-solid fa-circle-check"></i> Save Profile
       </button>
 
       <div class="footer-powered">
@@ -628,7 +628,7 @@
       </div>
 
       <div class="modal-btn-row" style="margin-top: 14px;">
-        <button class="btn btn-whatsapp" onclick="window.open('https://wa.me/918329962703?text=Hello%20Tab%20Solution,%20mujhe%20Tab-Pharma%20ke%20bare%20me%20support%20chahiye.', '_blank')">
+        <button class="btn btn-whatsapp" onclick="window.open('https://wa.me/918329962703?text=Hello%20Tab%20Solution,%20I%20need%20support%20with%20Tab-Pharma.', '_blank')">
           <i class="fa-brands fa-whatsapp"></i> WhatsApp Support
         </button>
         <button class="btn btn-secondary" onclick="closeSupportModal()">Close</button>
@@ -644,11 +644,11 @@
   <div id="expiredAlertModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-      <h3>⚠️ EXPIRED DAWA!</h3>
-      <p>Aap <b id="modalMedName">-</b> bech rahe hain jo <b id="modalExpDate" style="color:#ef4444;">-</b> ko expire ho chuki hai.</p>
+      <h3>⚠️ EXPIRED MEDICINE!</h3>
+      <p>You are selling <b id="modalMedName">-</b>, which expired on <b id="modalExpDate" style="color:#ef4444;">-</b>.</p>
       
       <div class="modal-btn-row">
-        <button type="button" class="btn btn-secondary" onclick="closeExpiredModal()">Rokein</button>
+        <button type="button" class="btn btn-secondary" onclick="closeExpiredModal()">Cancel</button>
         <button type="button" class="btn btn-danger" onclick="addItemToCart(true)">Proceed (Add)</button>
       </div>
     </div>

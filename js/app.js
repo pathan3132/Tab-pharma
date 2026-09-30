@@ -14,7 +14,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
 
-  // Agar user ne pehle dismiss nahi kiya hai toh banner dikhayein
+  // Show the banner only if the user hasn't dismissed it before
   if (!localStorage.getItem('pwa_dismissed')) {
     const banner = document.getElementById('pwaInstallBanner');
     if (banner) banner.style.display = 'flex';
@@ -35,7 +35,7 @@ function triggerPWAInstall() {
       dismissPWABanner();
     });
   } else {
-    alert("App install karne ke liye apne browser menu (⋮) me jakar 'Install App' ya 'Add to Home Screen' chunein!");
+    alert("To install the app, open your browser menu (⋮) and choose 'Install App' or 'Add to Home Screen'.");
   }
 }
 
@@ -58,6 +58,7 @@ let currentSaleMode = 'strip';
 let currentPaymentMode = 'Cash'; // 'Cash' | 'UPI' | 'Udhaar'
 let isCurrentMedicineExpired = false;
 let currentHistoryMode = 'khata';
+const LOW_STOCK_LIMIT = 10; // Strips below this count are flagged as low stock
 
 let deskFilterCategory = 'all'; // 'all' | 'expired' | 'soon'
 let selectedExpiryKeys = new Set(); // Stores unique keys of selected expiry items
@@ -74,6 +75,19 @@ function parseSafeDate(dateStr) {
     return new Date(parts[2], parts[1] - 1, parts[0]);
   }
   return new Date(dateStr);
+}
+
+// Escape user-supplied text before inserting it into HTML
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+// Keep only digits; use the last 10 digits (drops +91 / leading 0)
+function normalizeMobile(raw) {
+  const digits = String(raw || '').replace(/\D/g, '');
+  return digits.length > 10 ? digits.slice(-10) : digits;
 }
 
 // 1. Startup Logic
@@ -130,7 +144,7 @@ function saveShopProfile() {
   const dlNo = document.getElementById('setupShopDL').value.trim();
 
   if (!shopName || !phone || !address) {
-    alert("Kripya Dukan Ka Naam, Mobile aur Pata zaroor bharein!");
+    alert("Please enter the shop name, phone number and address.");
     return;
   }
 
@@ -147,7 +161,7 @@ function saveShopProfile() {
   document.getElementById('shopProfileModal').style.display = 'none';
   
   applyShopProfileToUI();
-  alert(`🎉 Badhai ho! "${shopName}" ka setup pura ho gaya!`);
+  alert(`🎉 Congratulations! Setup for "${shopName}" is complete.`);
 }
 
 function applyShopProfileToUI() {
@@ -229,7 +243,7 @@ function updateDashboardMetrics() {
       if (daysDiff < 0) expired++;
       else if (daysDiff <= 60) expiringSoon++;
       
-      if (qtyNum < 10) lowStock++;
+      if (qtyNum < LOW_STOCK_LIMIT) lowStock++;
     }
   });
 
@@ -244,10 +258,8 @@ function openExpiryDesk(category = 'all') {
   selectedExpiryKeys.clear();
 
   document.querySelectorAll('#expiryDeskModal .chip').forEach(c => c.classList.remove('active'));
-  const targetChip = Array.from(document.querySelectorAll('#expiryDeskModal .chip')).find(c => 
-    (category === 'all' && c.innerText.includes('Sabhi')) ||
-    (category === 'expired' && c.innerText.includes('Expired')) ||
-    (category === 'soon' && c.innerText.includes('60 Din'))
+  const targetChip = Array.from(document.querySelectorAll('#expiryDeskModal .chip')).find(c =>
+    (c.getAttribute('onclick') || '').includes(`'${category}'`)
   );
   if (targetChip) targetChip.classList.add('active');
 
@@ -291,8 +303,8 @@ function getActiveExpiryList() {
     // Search query filter
     return (
       item.Medicine_Name.toLowerCase().includes(query) ||
-      item.Batch_No.toLowerCase().includes(query) ||
-      item.Expiry_Date.includes(query)
+      String(item.Batch_No).toLowerCase().includes(query) ||
+      String(item.Expiry_Date).includes(query)
     );
   });
 }
@@ -306,7 +318,7 @@ function renderExpiryDeskItems() {
     container.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-circle-check" style="color:#16a34a; font-size:2.5rem;"></i>
-        <p>Koi bhi expired ya urgent dawa nahi bachi hai.</p>
+        <p>No expired or urgently expiring medicines.</p>
       </div>
     `;
     updateSelectedBadge();
@@ -320,19 +332,19 @@ function renderExpiryDeskItems() {
     const daysDiff = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
 
     let badge = daysDiff < 0 
-      ? `<span class="badge-pill danger">🚨 Expired (${Math.abs(daysDiff)}d pehle)</span>`
-      : `<span class="badge-pill warning">⏳ ${daysDiff} Din Baki</span>`;
+      ? `<span class="badge-pill danger">🚨 Expired ${Math.abs(daysDiff)} days ago</span>`
+      : `<span class="badge-pill warning">⏳ ${daysDiff} days left</span>`;
 
     return `
       <div class="desk-item-card ${isChecked ? 'selected' : ''}" onclick="toggleExpiryItemSelect('${key.replace(/'/g, "\\'")}')">
         <input type="checkbox" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleExpiryItemSelect('${key.replace(/'/g, "\\'")}')">
         <div class="desk-item-details">
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <b>${item.Medicine_Name}</b>
+            <b>${escapeHtml(item.Medicine_Name)}</b>
             <span style="font-weight:800; color:#0f172a;">${item.Current_Qty}</span>
           </div>
           <div style="font-size:0.75rem; color:#64748b; margin: 2px 0;">
-            Batch: <b>${item.Batch_No}</b> | Exp: <b>${item.Expiry_Date}</b> | MRP: ₹${item.MRP}
+            Batch: <b>${escapeHtml(item.Batch_No)}</b> | Exp: <b>${item.Expiry_Date}</b> | MRP: ₹${item.MRP}
           </div>
           <div>${badge}</div>
         </div>
@@ -375,7 +387,7 @@ function getSelectedExpiryObjects() {
 function printSelectedExpiryPDF() {
   const selected = getSelectedExpiryObjects();
   if (selected.length === 0) {
-    alert("Kripya pehle kam se kam 1 dawa tick (select) karein!");
+    alert("Please select at least one medicine first.");
     return;
   }
 
@@ -421,8 +433,8 @@ function printSelectedExpiryPDF() {
             ${selected.map((item, idx) => `
               <tr>
                 <td>${idx + 1}</td>
-                <td><b>${item.Medicine_Name}</b></td>
-                <td>${item.Batch_No}</td>
+                <td><b>${escapeHtml(item.Medicine_Name)}</b></td>
+                <td>${escapeHtml(item.Batch_No)}</td>
                 <td>${item.Expiry_Date}</td>
                 <td><b>${item.Current_Qty}</b></td>
                 <td>₹${item.MRP}</td>
@@ -448,7 +460,7 @@ function printSelectedExpiryPDF() {
 function sendSelectedExpiryWhatsApp() {
   const selected = getSelectedExpiryObjects();
   if (selected.length === 0) {
-    alert("Kripya pehle kam se kam 1 dawa tick (select) karein!");
+    alert("Please select at least one medicine first.");
     return;
   }
 
@@ -463,20 +475,20 @@ function sendSelectedExpiryWhatsApp() {
     msg += `${idx + 1}. *${it.Medicine_Name}*\n   Batch: ${it.Batch_No} | Qty: ${it.Current_Qty} (Exp: ${it.Expiry_Date})\n`;
   });
   msg += `------------------------------------\n`;
-  msg += `*Kul Selected Dawa: ${selected.length} Items*\nKripya iska Credit Note / Return banayein.\n_Powered by Tab-Pharma (Tab Solution)_`;
+  msg += `*Total Selected Medicines: ${selected.length}*\nPlease issue a credit note / accept this return.\n_Powered by Tab-Pharma (Tab Solution)_`;
 
   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// 8. 📦 Bulk Mark Selected as Returned (Stock 0 & List se hatayein)
+// 8. 📦 Bulk Mark Selected as Returned (set stock to 0 and remove from list)
 async function bulkMarkSelectedAsReturned() {
   const selected = getSelectedExpiryObjects();
   if (selected.length === 0) {
-    alert("Kripya pehle kam se kam 1 dawa tick (select) karein!");
+    alert("Please select at least one medicine first.");
     return;
   }
 
-  if (!confirm(`Kya aapne yeh ${selected.length} dawaiyan Agency ko wapas de di hain?\n\nInka stock 0 ho jayega aur yeh list se hamesha ke liye hat jayengi.`)) {
+  if (!confirm(`Have you returned these ${selected.length} medicines to the distributor?\n\nTheir stock will be set to 0 and they will be permanently removed from this list.`)) {
     return;
   }
 
@@ -518,9 +530,10 @@ async function bulkMarkSelectedAsReturned() {
         })
       });
     }
-    alert(`✅ ${selected.length} dawaiyan Agency ko return darj ho gayi aur list se hat gayi!`);
+    alert(`✅ ${selected.length} medicines recorded as returned to the distributor and removed from the list.`);
   } catch (err) {
     console.error("Sync error:", err);
+    alert("The return was updated on this device but could not be synced to the server. Please check your connection.");
   }
 }
 
@@ -554,7 +567,7 @@ function showSuggestions(input, boxId) {
     });
 
   if (matched.length === 0) {
-    box.innerHTML = `<div class="suggestion-item" style="color: #94a3b8;"><i class="fa-solid fa-plus-circle"></i> "${input.value}"</div>`;
+    box.innerHTML = `<div class="suggestion-item" style="color: #94a3b8;"><i class="fa-solid fa-plus-circle"></i> "${escapeHtml(input.value)}"</div>`;
     box.style.display = 'block';
     return;
   }
@@ -562,7 +575,7 @@ function showSuggestions(input, boxId) {
   box.innerHTML = matched.map(med => `
     <div class="suggestion-item" onclick="selectSuggestion('${input.id}', '${boxId}', '${med.replace(/'/g, "\\'")}')">
       <i class="fa-solid fa-pills" style="color:#0d9488;"></i> 
-      <span>${med}</span>
+      <span>${escapeHtml(med)}</span>
     </div>
   `).join('');
 
@@ -576,7 +589,7 @@ function selectSuggestion(inputId, boxId, medName) {
   if (inputId === 'posMedName') {
     autoFillPOSDetails(medName);
   } else if (inputId === 'stockMedName') {
-    // 🚚 Purchase Form me purana batch auto-fill karein
+    // Auto-fill the previous batch details in the purchase form
     const existing = globalInventory.find(item => item.Medicine_Name && item.Medicine_Name.toLowerCase() === medName.toLowerCase());
     if (existing) {
       document.getElementById('stockBatchNo').value = existing.Batch_No || '';
@@ -594,7 +607,7 @@ document.addEventListener('click', function(e) {
 });
 
 // 10. POS Sale Mode, Cart & Billing
-// 6. POS Smart Selection (Hamesha Fresh / Non-Expired Stock Pehle Uthayega)
+// POS smart selection (always prefers fresh, non-expired stock first)
 function autoFillPOSDetails(medName) {
   const batches = globalInventory.filter(item => 
     item.Medicine_Name && item.Medicine_Name.toLowerCase() === medName.toLowerCase()
@@ -603,11 +616,11 @@ function autoFillPOSDetails(medName) {
 
   const today = new Date();
 
-  // Step 1: Sirf wahi batch dekhein jinka stock dukan me bacha hai (> 0)
+  // Step 1: Consider only batches that are in stock (> 0)
   const inStockBatches = batches.filter(b => (parseFloat(b.Current_Qty) || 0) > 0);
   const targetPool = inStockBatches.length > 0 ? inStockBatches : batches;
 
-  // Step 2: Fresh (Non-Expired) Batches ko alag filter karein
+  // Step 2: Separate the fresh (non-expired) batches
   const freshBatches = targetPool.filter(b => {
     const exp = parseSafeDate(b.Expiry_Date);
     return Math.ceil((exp - today) / (1000 * 60 * 60 * 24)) >= 0;
@@ -615,13 +628,13 @@ function autoFillPOSDetails(medName) {
 
   let bestBatch;
 
-  // Step 3: Agar dukan me nayi / fresh dawa aa chuki hai, toh wahi select karo!
+  // Step 3: If fresh stock is available, select it
   if (freshBatches.length > 0) {
-    // Fresh batches me se jo sabse pehle expire hogi (FEFO) use chuno
+    // Pick the fresh batch that expires first (FEFO)
     freshBatches.sort((a, b) => parseSafeDate(a.Expiry_Date) - parseSafeDate(b.Expiry_Date));
     bestBatch = freshBatches[0];
   } else {
-    // Agar sari hi dawaiyan expire hain, tab majboori me expired batch uthao warning ke sath
+    // If every batch is expired, fall back to an expired batch (with a warning)
     targetPool.sort((a, b) => parseSafeDate(b.Expiry_Date) - parseSafeDate(a.Expiry_Date));
     bestBatch = targetPool[0];
   }
@@ -629,7 +642,7 @@ function autoFillPOSDetails(medName) {
   const expDate = parseSafeDate(bestBatch.Expiry_Date);
   const daysDiff = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
 
-  // Form me batch details bharein
+  // Fill in the batch details
   document.getElementById('posBatchInfo').style.display = 'flex';
   document.getElementById('posSelectedBatch').innerText = bestBatch.Batch_No;
   document.getElementById('posSelectedExpiry').innerText = bestBatch.Expiry_Date;
@@ -642,9 +655,9 @@ function autoFillPOSDetails(medName) {
   if (daysDiff < 0) {
     isCurrentMedicineExpired = true;
     banner.style.display = 'flex';
-    document.getElementById('posExpiredDateText').innerText = `${bestBatch.Expiry_Date} (${Math.abs(daysDiff)} din pehle expired)`;
+    document.getElementById('posExpiredDateText').innerText = `${bestBatch.Expiry_Date} (expired ${Math.abs(daysDiff)} days ago)`;
   } else {
-    // Agar fresh batch hai, toh warning band rahegi
+    // Fresh batch: keep the warning hidden
     isCurrentMedicineExpired = false;
     banner.style.display = 'none';
   }
@@ -718,12 +731,12 @@ function addItemToCart(forceExpired = false) {
   const itemTotal = calcItemSubtotal();
 
   if (!medName || !batchNo || batchNo === '-') {
-    alert("Kripya pehle dawa search karke select karein!");
+    alert("Please search for and select a medicine first.");
     return;
   }
 
   if (itemTotal <= 0) {
-    alert("Quantity aur MRP sahi daalein!");
+    alert("Please enter a valid quantity and MRP.");
     return;
   }
 
@@ -779,7 +792,7 @@ function renderCartUI() {
     container.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-cart-shopping"></i>
-        <p>Bill khali hai. Upar se dawa add karein.</p>
+        <p>The bill is empty. Add a medicine above.</p>
       </div>
     `;
     calculateFinalBill();
@@ -789,8 +802,8 @@ function renderCartUI() {
   container.innerHTML = currentCart.map((item, idx) => `
     <div class="cart-item-card">
       <div class="cart-item-info">
-        <b>${item.medicineName}</b>
-        <small>Batch: ${item.batchNo} | Qty: ${item.qty} @ ₹${item.mrp}</small>
+        <b>${escapeHtml(item.medicineName)}</b>
+        <small>Batch: ${escapeHtml(item.batchNo)} | Qty: ${item.qty} @ ₹${item.mrp}</small>
       </div>
       <div class="cart-item-price">
         <div class="amount">₹${item.total}</div>
@@ -819,16 +832,16 @@ function closeExpiredModal() {
 
 async function submitFinalBill(isPrint = false) {
   if (currentCart.length === 0) {
-    alert("Bill me kam se kam 1 dawa jodna zaroori hai!");
+    alert("Please add at least one medicine to the bill.");
     return;
   }
 
   const totalAmount = calculateFinalBill();
-  const mobile = document.getElementById('posCustomerMobile').value.trim();
+  const mobile = normalizeMobile(document.getElementById('posCustomerMobile').value);
   const custName = document.getElementById('posCustomerName').value.trim();
 
   if (currentPaymentMode === 'Udhaar' && !custName) {
-    alert("Udhaar bill ke liye Customer Ka Naam likhna zaroori hai!");
+    alert("Customer name is required for a credit (Udhaar) bill.");
     document.getElementById('posCustomerName').focus();
     return;
   }
@@ -877,7 +890,7 @@ async function submitFinalBill(isPrint = false) {
         msg += `------------------------------------\n`;
         currentCart.forEach(it => msg += `${it.medicineName} (${it.qty}) - Rs.${it.total}\n`);
         msg += `------------------------------------\n`;
-        msg += `*Kul Rashi: Rs.${totalAmount}*\n\nGet Well Soon! Jaldi theek ho jayein 🙏\n_Powered by Tab-Pharma • Tab Solution (Ph: 8329962703)_`;
+        msg += `*Total Amount: Rs.${totalAmount}*\n\nGet well soon! 🙏\n_Powered by Tab-Pharma • Tab Solution (Ph: 8329962703)_`;
         
         waBtn.style.display = 'inline-flex';
         waBtn.onclick = () => window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -894,12 +907,14 @@ async function submitFinalBill(isPrint = false) {
       loadInventory();
       loadTodaySalesSummary();
       loadSalesHistory();
+    } else {
+      alert("Could not save the bill: " + (result.message || "Unknown error"));
     }
   } catch (error) {
     console.error("Sale Error:", error);
-    alert("Bill save nahi ho paya. Connection check karein.");
+    alert("Could not save the bill. Please check your connection.");
   } finally {
-    btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Parcha';
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Bill';
     btn.disabled = false;
   }
 }
@@ -937,7 +952,7 @@ function printThermalSlip(invId, items, total) {
         <div class="line"></div>
         ${items.map(it => `
           <div style="margin-bottom:3px;">
-            <b>${it.medicineName}</b><br>
+            <b>${escapeHtml(it.medicineName)}</b><br>
             <div class="row">
               <span>${it.qty} @ ₹${it.mrp}</span>
               <span>₹${it.total}</span>
@@ -996,7 +1011,7 @@ function addItemToPurchaseInvoice() {
   const { totalUnits, finalUnitName, totalItemCost, purchaseRate } = calcPurchaseItemTotal();
 
   if (!medName || !batchNo || !expiryDate || totalUnits <= 0 || purchaseRate <= 0 || mrp <= 0) {
-    alert("Kripya Medicine, Batch, Expiry, Qty, Purchase Rate aur MRP bharein!");
+    alert("Please enter the medicine, batch, expiry, quantity, purchase rate and MRP.");
     return;
   }
 
@@ -1032,7 +1047,7 @@ function renderPurchaseCartUI() {
     container.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-truck-loading"></i>
-        <p>Koi dawa add nahi hui hai.</p>
+        <p>No medicines added yet.</p>
       </div>
     `;
     document.getElementById('finalPurchaseCostDisplay').innerText = '₹0';
@@ -1045,8 +1060,8 @@ function renderPurchaseCartUI() {
     return `
       <div class="cart-item-card">
         <div class="cart-item-info">
-          <b>${item.medicineName}</b>
-          <small>Batch: ${item.batchNo} | Qty: ${item.qty}</small><br>
+          <b>${escapeHtml(item.medicineName)}</b>
+          <small>Batch: ${escapeHtml(item.batchNo)} | Qty: ${item.qty}</small><br>
           <small>Rate: ₹${item.purchaseRate} | MRP: ₹${item.mrp}</small>
         </div>
         <div class="cart-item-price">
@@ -1067,7 +1082,7 @@ function removeFromPurchaseCart(index) {
 
 async function submitFinalPurchaseBill() {
   if (currentPurchaseCart.length === 0) {
-    alert("Kripya pehle Purchase Bill me dawa jodein!");
+    alert("Please add medicines to the purchase bill first.");
     return;
   }
 
@@ -1109,14 +1124,14 @@ async function submitFinalPurchaseBill() {
     }
   } catch (error) {
     console.error("Purchase Save Error:", error);
-    alert("Purchase bill save nahi ho paya.");
+    alert("Could not save the purchase bill. Please check your connection.");
   } finally {
-    btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Stock Jama Karein';
+    btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Add to Stock';
     btn.disabled = false;
   }
 }
 
-// 12. Khata (Udhaar) & History View
+// 12. Credit Ledger (Udhaar) & History View
 function switchHistoryMode(mode) {
   currentHistoryMode = mode;
   const btnKhata = document.getElementById('btnHistKhata');
@@ -1129,18 +1144,18 @@ function switchHistoryMode(mode) {
 
   if (mode === 'khata') {
     btnKhata.classList.add('active');
-    heading.innerText = 'Mohalle Ka Udhaar (Baki Hisaab)';
+    heading.innerText = 'Outstanding Credit (Udhaar) Ledger';
     searchInput.placeholder = 'Search customer name or mobile...';
     renderKhataCards();
   } else if (mode === 'sale') {
     btnSale.classList.add('active');
-    heading.innerText = 'Sabhi Sale Bills';
+    heading.innerText = 'All Sales Bills';
     searchInput.placeholder = 'Search by Bill No or Mobile...';
     if (allSalesHistory.length > 0) renderSalesHistoryCards(allSalesHistory);
     loadSalesHistory();
   } else {
     btnPurch.classList.add('active');
-    heading.innerText = 'Sabhi Purchase Bills';
+    heading.innerText = 'All Purchase Bills';
     searchInput.placeholder = 'Search by Supplier or Bill No...';
     if (allPurchaseHistory.length > 0) renderPurchaseHistoryCards(allPurchaseHistory);
     loadPurchaseHistory();
@@ -1161,7 +1176,7 @@ function renderKhataCards(query = '') {
     container.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-circle-check" style="color:#16a34a;"></i>
-        <p>Badhai ho! Kisi ka koi udhaar baki nahi hai.</p>
+        <p>All clear! There are no outstanding credit (Udhaar) dues.</p>
       </div>
     `;
     return;
@@ -1177,23 +1192,23 @@ function renderKhataCards(query = '') {
     <div class="list-item-card" style="border-left: 4px solid #ef4444;">
       <div class="card-top">
         <div>
-          <div class="card-title">${b.customerName || 'Customer'}</div>
+          <div class="card-title">${escapeHtml(b.customerName || 'Customer')}</div>
           <div class="card-subtext"><i class="fa-solid fa-phone"></i> ${b.customerMobile || 'No Mobile'} | <i class="fa-regular fa-clock"></i> ${b.date}</div>
         </div>
         <div style="font-size:1.15rem; font-weight:800; color:#ef4444;">₹${b.totalAmount}</div>
       </div>
       <div class="card-meta-row" style="margin-top: 6px;">
-        <span class="badge-pill danger">Baki (उधार)</span>
-        <span class="badge-pill gray">${b.items.length} Dawa</span>
+        <span class="badge-pill danger">Due (Udhaar)</span>
+        <span class="badge-pill gray">${b.items.length} Items</span>
         
         <div style="margin-left: auto; display: flex; gap: 6px;">
           ${b.customerMobile && b.customerMobile.length >= 10 ? `
-            <button class="btn-sm btn-whatsapp" onclick="sendKhataReminderWhatsApp('${b.customerName}', '${b.customerMobile}', ${b.totalAmount}, '${b.invoiceId}')">
-              <i class="fa-brands fa-whatsapp"></i> Yaad Dilayein
+            <button class="btn-sm btn-whatsapp" onclick="sendKhataReminderWhatsApp('${b.invoiceId}')">
+              <i class="fa-brands fa-whatsapp"></i> Send Reminder
             </button>
           ` : ''}
           <button class="btn-sm btn-success" onclick="settleKhataBill('${b.invoiceId}')">
-            <i class="fa-solid fa-check"></i> Jama Hua
+            <i class="fa-solid fa-check"></i> Mark Paid
           </button>
         </div>
       </div>
@@ -1201,14 +1216,17 @@ function renderKhataCards(query = '') {
   `).join('');
 }
 
-function sendKhataReminderWhatsApp(name, mobile, amount, invId) {
+function sendKhataReminderWhatsApp(invId) {
+  const bill = allSalesHistory.find(b => b.invoiceId === invId);
+  if (!bill || !bill.customerMobile) return;
+
   const sName = storeProfile ? storeProfile.shopName : "TAB-PHARMA STORE";
-  const msg = `*Namaste ${name} Ji*,\n${sName} par aapka *₹${amount}* ka dawa bill (${invId}) baki hai.\nKripya samay par jama kar dein. Dhanyawad! 🙏`;
-  window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
+  const msg = `*Hello ${bill.customerName}*,\nThis is a reminder that a payment of *₹${bill.totalAmount}* for your medicine bill (${bill.invoiceId}) is pending at ${sName}.\nKindly clear the dues at your earliest convenience. Thank you! 🙏`;
+  window.open(`https://wa.me/91${bill.customerMobile}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 function settleKhataBill(invId) {
-  if (!confirm(`Kya Invoice "${invId}" ka udhaar jama ho gaya hai?`)) return;
+  if (!confirm(`Has the credit (Udhaar) for invoice "${invId}" been paid?`)) return;
 
   const bill = allSalesHistory.find(b => b.invoiceId === invId);
   if (bill) {
@@ -1217,7 +1235,7 @@ function settleKhataBill(invId) {
     localStorage.setItem('tab_cache_sales', JSON.stringify(allSalesHistory));
     renderKhataCards();
     loadTodaySalesSummary();
-    alert("✅ Udhaar Jama darj ho gaya!");
+    alert("✅ Payment recorded.");
   }
 }
 
@@ -1281,15 +1299,15 @@ function renderSalesHistoryCards(bills) {
   if (!container) return;
 
   if (bills.length === 0) {
-    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-receipt"></i><p>Koi sale bill nahi hai</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-receipt"></i><p>No sales bills found</p></div>`;
     return;
   }
 
   container.innerHTML = bills.map((bill, idx) => `
-    <div class="list-item-card" onclick="viewBillDetails(${idx})">
+    <div class="list-item-card" onclick="viewBillDetails(${allSalesHistory.indexOf(bill)})">
       <div class="card-top">
         <div>
-          <div class="card-title">${bill.invoiceId} (${bill.customerName || 'Counter'})</div>
+          <div class="card-title">${bill.invoiceId} (${escapeHtml(bill.customerName || 'Counter')})</div>
           <div class="card-subtext"><i class="fa-regular fa-clock"></i> ${bill.date}</div>
         </div>
         <div style="font-size:1.05rem; font-weight:800; color:#0d9488;">₹${bill.totalAmount}</div>
@@ -1308,16 +1326,16 @@ function renderPurchaseHistoryCards(bills) {
   if (!container) return;
 
   if (bills.length === 0) {
-    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-truck-ramp-box"></i><p>Koi purchase bill nahi hai</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-truck-ramp-box"></i><p>No purchase bills found</p></div>`;
     return;
   }
 
   container.innerHTML = bills.map((bill, idx) => `
-    <div class="list-item-card" onclick="viewPurchaseBillDetails(${idx})">
+    <div class="list-item-card" onclick="viewPurchaseBillDetails(${allPurchaseHistory.indexOf(bill)})">
       <div class="card-top">
         <div>
-          <div class="card-title">Bill: ${bill.invoiceNo}</div>
-          <div class="card-subtext" style="color:#0284c7; font-weight:600;"><i class="fa-solid fa-truck"></i> ${bill.supplierName}</div>
+          <div class="card-title">Bill: ${escapeHtml(bill.invoiceNo)}</div>
+          <div class="card-subtext" style="color:#0284c7; font-weight:600;"><i class="fa-solid fa-truck"></i> ${escapeHtml(bill.supplierName)}</div>
         </div>
         <div style="font-size:1.05rem; font-weight:800; color:#0284c7;">₹${bill.totalCost}</div>
       </div>
@@ -1340,7 +1358,7 @@ function viewBillDetails(index) {
   const container = document.getElementById('viewModalItemsList');
   container.innerHTML = bill.items.map(it => `
     <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f1f5f9; font-size:0.85rem;">
-      <div><b>${it.medicineName}</b><br><small style="color:#64748b;">Batch: ${it.batchNo} (${it.qty})</small></div>
+      <div><b>${escapeHtml(it.medicineName)}</b><br><small style="color:#64748b;">Batch: ${escapeHtml(it.batchNo)} (${it.qty})</small></div>
       <div style="font-weight:700;">₹${it.total}</div>
     </div>
   `).join('');
@@ -1369,7 +1387,7 @@ function viewPurchaseBillDetails(index) {
   const container = document.getElementById('viewPurchItemsList');
   container.innerHTML = bill.items.map(it => `
     <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f1f5f9; font-size:0.85rem;">
-      <div><b>${it.medicineName}</b><br><small style="color:#64748b;">${it.batchNo} | Exp: ${it.expiryDate} | ${it.qty}</small></div>
+      <div><b>${escapeHtml(it.medicineName)}</b><br><small style="color:#64748b;">${escapeHtml(it.batchNo)} | Exp: ${it.expiryDate} | ${it.qty}</small></div>
       <div style="font-weight:700; color:#0284c7;">₹${it.totalCost}</div>
     </div>
   `).join('');
@@ -1387,7 +1405,7 @@ function closePurchDetailModal() {
 
 async function editBill(index) {
   const bill = allSalesHistory[index];
-  if (!confirm(`Invoice "${bill.invoiceId}" me badlaav karna chahte hain? Stock revert hoke Cart me aa jayega.`)) return;
+  if (!confirm(`Do you want to edit invoice "${bill.invoiceId}"? Its stock will be restored and the items will be loaded into the cart.`)) return;
 
   const btn = document.getElementById('modalEditBtn');
   btn.innerText = "Restoring...";
@@ -1419,12 +1437,14 @@ async function editBill(index) {
 
       renderCartUI();
       showTab('pos', document.querySelectorAll('.nav-item')[1]);
-      alert(`✅ Bill "${bill.invoiceId}" Cart me load ho gaya hai!`);
+      alert(`✅ Bill "${bill.invoiceId}" has been loaded into the cart.`);
       loadInventory();
       loadTodaySalesSummary();
+    } else {
+      alert("Could not edit the bill: " + (result.message || "Unknown error"));
     }
   } catch (err) {
-    alert("Error edit karne me");
+    alert("Could not edit the bill. Please try again.");
   } finally {
     btn.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Bill';
     btn.disabled = false;
@@ -1433,7 +1453,7 @@ async function editBill(index) {
 
 async function editPurchaseBill(index) {
   const bill = allPurchaseHistory[index];
-  if (!confirm(`Supplier "${bill.supplierName}" ka Bill "${bill.invoiceNo}" edit karein?`)) return;
+  if (!confirm(`Edit bill "${bill.invoiceNo}" from supplier "${bill.supplierName}"?`)) return;
 
   const btn = document.getElementById('modalPurchEditBtn');
   btn.innerText = "Reverting...";
@@ -1465,12 +1485,14 @@ async function editPurchaseBill(index) {
 
       renderPurchaseCartUI();
       showTab('purchase', document.querySelectorAll('.nav-item')[3]);
-      alert(`✅ Purchase Bill "${bill.invoiceNo}" form me load ho gaya!`);
+      alert(`✅ Purchase Bill "${bill.invoiceNo}" has been loaded into the form.`);
       loadInventory();
       loadPurchaseHistory();
+    } else {
+      alert("Could not revert the purchase bill: " + (result.message || "Unknown error"));
     }
   } catch (err) {
-    alert("Error reverting purchase");
+    alert("Could not revert the purchase bill. Please try again.");
   } finally {
     btn.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Purchase';
     btn.disabled = false;
@@ -1492,20 +1514,20 @@ function filterInventoryCards() {
   document.getElementById('totalItemsCount').innerText = `${filtered.length} Items`;
 
   if (filtered.length === 0) {
-    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i><p>Koi dawa nahi mili</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i><p>No medicines found</p></div>`;
     return;
   }
 
   container.innerHTML = filtered.map(item => {
-    const qtyNum = parseInt(item.Current_Qty) || 0;
-    const isLow = qtyNum < 5;
+    const qtyNum = parseFloat(item.Current_Qty) || 0;
+    const isLow = qtyNum < LOW_STOCK_LIMIT;
 
     return `
       <div class="list-item-card">
         <div class="card-top">
           <div>
-            <div class="card-title">${item.Medicine_Name}</div>
-            <div class="card-subtext">Batch: <b>${item.Batch_No}</b> | Exp: <b>${item.Expiry_Date}</b></div>
+            <div class="card-title">${escapeHtml(item.Medicine_Name)}</div>
+            <div class="card-subtext">Batch: <b>${escapeHtml(item.Batch_No)}</b> | Exp: <b>${item.Expiry_Date}</b></div>
           </div>
           <div style="text-align:right;">
             <div style="font-size:1.05rem; font-weight:800; color:${isLow ? '#ef4444' : '#0f172a'};">${item.Current_Qty}</div>
@@ -1514,14 +1536,14 @@ function filterInventoryCards() {
         </div>
         <div class="card-meta-row">
           <span class="badge-pill gray">Purchase: ₹${item.Purchase_Rate || 0}</span>
-          ${isLow ? '<span class="badge-pill danger">⚠️ Kam Stock</span>' : '<span class="badge-pill success">Stock Ok</span>'}
+          ${isLow ? '<span class="badge-pill danger">⚠️ Low Stock</span>' : '<span class="badge-pill success">Stock Ok</span>'}
         </div>
       </div>
     `;
   }).join('');
 }
 
-// 15. Daily Galla Summary
+// 15. Daily Sales Summary
 async function loadTodaySalesSummary() {
   try {
     if (!SCRIPT_URL || SCRIPT_URL.includes("YOUR_GOOGLE_APPS_SCRIPT_URL_HERE")) return;
@@ -1532,7 +1554,7 @@ async function loadTodaySalesSummary() {
       document.getElementById('todayCashAmount').innerText = `₹${json.cashAmount || 0}`;
       document.getElementById('todayUpiAmount').innerText = `₹${json.upiAmount || 0}`;
       document.getElementById('todayUdhaarAmount').innerText = `₹${json.udhaarAmount || 0}`;
-      document.getElementById('todayBillCount').innerText = `${json.totalBills || 0} Parcha`;
+      document.getElementById('todayBillCount').innerText = `${json.totalBills || 0} Bills`;
     }
   } catch (err) {}
 }
